@@ -34,7 +34,7 @@ type Votante interface {
 
 	//Deshacer deshace la última operación realizada. Se tiene que poder deshacer hasta el estado inicial del voto
 	//(equivalente a un voto completamente en blanco). En caso que efectivamente haya habido alguna acción para
-	//deshacer, devolverá nil. En caso de no haber acción par adeshacer, devolverá el error correspondiente.
+	//deshacer, devolverá nil. En caso de no haber acción para deshacer, devolverá el error correspondiente.
 	//También puede devolver error en caso que el votante ya hubiera terminado antes su proceso de votación.
 	Deshacer() error
 

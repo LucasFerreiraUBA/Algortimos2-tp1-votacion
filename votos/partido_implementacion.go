@@ -3,7 +3,7 @@ package votos
 import (
 	"fmt"
 	"os"
-	"rerepolez/errores"
+	errores "rerepolez/errores"
 )
 
 type partidoImplementacion struct {
