@@ -1,7 +1,7 @@
 package votos
 
 type Fila interface {
-	VerActual() Votante
+	VerActual() *Votante
 
 	HayVotantes() bool
 
@@ -9,5 +9,7 @@ type Fila interface {
 
 	FinalizarVoto()
 
-	
+	BuscarDNI(int, []int) bool
+
+	ValidarDNI(int) bool
 }

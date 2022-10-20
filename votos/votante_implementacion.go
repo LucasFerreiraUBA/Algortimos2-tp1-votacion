@@ -2,23 +2,24 @@ package votos
 
 import (
 	"rerepolez/errores"
-	TDAPila "rerepolez/votos/pila"
+	TDAPila "rerepolez/pila"
 )
 
-type votoProvisorio struct {
-	alternativas TDAPila.Pila[int]
-	puestos      TDAPila.Pila[TipoVoto]
-}
 
 type votanteImplementacion struct {
-	dni             int
-	voto            Voto
-	ya_voto         bool
-	voto_provisorio *votoProvisorio
+	dni int
+	voto Voto
+	ya_voto bool
+	alternativas TDAPila.Pila[int]
+	puestos TDAPila.Pila[TipoVoto]
 }
+
 
 func CrearVotante(dni int) Votante {
 	votante := new(votanteImplementacion)
+	votante.dni = dni
+	votante.alternativas = TDAPila.CrearPilaDinamica[int]()
+	votante.puestos = TDAPila.CrearPilaDinamica[TipoVoto]()
 	return votante
 }
 
@@ -31,20 +32,20 @@ func (votante votanteImplementacion) LeerDNI() int {
 }
 
 func (votante *votanteImplementacion) Votar(tipo TipoVoto, alternativa int) error {
-	if votante.voto.Impugnado || votante.YaVoto() {
+	if votante.voto.Impugnado {
 		return &errores.ErrorVotanteFraudulento{votante.dni}
 	}
-	votante.voto_provisorio.alternativas.Apilar(votante.voto.VotoPorTipo[tipo])
-	votante.voto_provisorio.puestos.Apilar(tipo)
+	votante.alternativas.Apilar(votante.voto.VotoPorTipo[tipo])
+	votante.puestos.Apilar(tipo)
 	votante.voto.VotoPorTipo[tipo] = alternativa
 	return nil
 }
 
 func (votante *votanteImplementacion) Deshacer() error {
-	if votante.voto_provisorio.puestos.EstaVacia() {
+	if votante.puestos.EstaVacia() {
 		return &errores.ErrorNoHayVotosAnteriores{}
 	}
-	votante.voto.VotoPorTipo[votante.voto_provisorio.puestos.Desapilar()] = votante.voto_provisorio.alternativas.Desapilar()
+	votante.voto.VotoPorTipo[votante.puestos.Desapilar()] = votante.alternativas.Desapilar()
 	return nil
 }
 
@@ -53,7 +54,7 @@ func (votante *votanteImplementacion) Invalidar() {
 }
 
 func (votante *votanteImplementacion) FinVoto() (Voto, error) {
-	if votante.ya_voto {
+	if votante.ya_voto  {
 		error := &errores.ErrorVotanteFraudulento{votante.dni}
 		return votante.voto, error
 	}
