@@ -6,6 +6,8 @@ import (
 	errores"rerepolez/errores"
 )
 
+const NOMBRE_PARTIDO_BLANCO = "Votos En Blanco"
+
 type partidoImplementacion struct {
 	nombre     string
 	candidatos [CANT_VOTACION]string
@@ -13,6 +15,7 @@ type partidoImplementacion struct {
 }
 
 type partidoEnBlanco struct {
+	nombre string
 	votos [CANT_VOTACION]int
 }
 
@@ -22,7 +25,9 @@ func CrearPartido(nombre string, candidatos [CANT_VOTACION]string) Partido {
 }
 
 func CrearVotosEnBlanco() Partido {
-	return new(partidoEnBlanco)
+	votos_blancos := new(partidoEnBlanco)
+	votos_blancos.nombre = NOMBRE_PARTIDO_BLANCO
+	return votos_blancos
 }
 
 func (partido *partidoImplementacion) VotadoPara(tipo TipoVoto) {
@@ -34,8 +39,27 @@ func (partido *partidoImplementacion) VotadoPara(tipo TipoVoto) {
 
 }
 
+func (partido partidoImplementacion) Nombre() string {
+	return partido.nombre
+}
+
+func (blanco partidoEnBlanco) Nombre() string {
+	return blanco.nombre
+}
+
+func (partido partidoImplementacion) Candidato(cargo int) string {
+	return partido.candidatos[cargo]
+}
+
+func (blanco partidoEnBlanco) Candidato(cargo int) string {
+	return ""
+}
+
 func (partido partidoImplementacion) ObtenerResultado(tipo TipoVoto) string {
-	return fmt.Sprintf("%d", partido.votos[tipo])
+	if partido.votos[tipo] == 1{
+		return fmt.Sprintf("%d voto", partido.votos[tipo])
+	}
+	return fmt.Sprintf("%d votos", partido.votos[tipo])
 }
 
 func (blanco *partidoEnBlanco) VotadoPara(tipo TipoVoto) {
@@ -47,5 +71,8 @@ func (blanco *partidoEnBlanco) VotadoPara(tipo TipoVoto) {
 }
 
 func (blanco partidoEnBlanco) ObtenerResultado(tipo TipoVoto) string {
-	return fmt.Sprintf("%d", blanco.votos[tipo])
+	if blanco.votos[tipo] == 1{
+		return fmt.Sprintf("%d voto", blanco.votos[tipo])
+	}
+	return fmt.Sprintf("%d votos", blanco.votos[tipo])
 }

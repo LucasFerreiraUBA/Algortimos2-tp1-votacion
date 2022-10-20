@@ -29,49 +29,33 @@ const (
 )
 
 func main() {
-	var lista_partidos []votos.Partido
-	padron := make([]int, 0, 10)
-	args := os.Args
-	if len(args) < 3 {
-		// ERROR: FALTAN PARÁMETROS
-		ErrorParametro := new(errores.ErrorParametros)
-		fmt.Fprintf(os.Stdout, "%s\n", ErrorParametro.Error())
+	scanners, error := validar_archivos()
+	if error != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", error.Error())
 		return
-	} else {
-		archivos := args[1:]
-		s1 := abrirArchivo(archivos[0])
-		s2 := abrirArchivo(archivos[1])
-		votos_blancos := votos.CrearVotosEnBlanco()
-		lista_partidos = append(lista_partidos, votos_blancos)
-		for s1.Scan() {
-			campos := strings.Split(s1.Text(), ",")
-			var lista_candidatos [3]string
-			for i := 0; i < CANTIDAD_CARGOS; i++ {
-				lista_candidatos[i] = campos[i+1]
-			}
-			partido := votos.CrearPartido(campos[0], lista_candidatos)
-			lista_partidos = append(lista_partidos, partido)
-		}
-		for s2.Scan() {
-			elemento, _ := strconv.Atoi(s2.Text())
-			insertar_elemento(&padron, elemento)
-		}
 	}
+	lista_partidos := Crear_lista_partidos(scanners[0])
+	padron := Crear_Padron(scanners[1])
 	fila := votos.CrearFilaVotacion()
 	for {
-		pedir_input(&fila, lista_partidos, &padron)
+		input := pedir_input(&fila, lista_partidos)
+		if input != nil {
+			leer_input(input, &fila, lista_partidos, &padron)
+		}
 	}
 }
 
 func atrapar_errores_deshacer(fila votos.Fila, dni int) error {
+	if !fila.HayVotantes() {
+		return &errores.FilaVacia{}
+	}
 	if fila.ValidarDNI(dni) {
-		return &errores.ErrorVotanteFraudulento{dni}
+		return &errores.ErrorVotanteFraudulento{Dni: dni}
 	}
 	return nil
 }
 
 func insertar_elemento(lista *[]int, elemento int) {
-	// utiliza el algoritmo de inserción para insertar ordenadamente los elementos en la lista
 	if len(*lista) == 0 {
 		*lista = append(*lista, elemento)
 		return
@@ -96,10 +80,35 @@ func insertar_elemento(lista *[]int, elemento int) {
 	*lista = append(*lista, elemento)
 }
 
+func Crear_lista_partidos(s1 bufio.Scanner) []votos.Partido {
+	var lista_partidos []votos.Partido
+	votos_blancos := votos.CrearVotosEnBlanco()
+	lista_partidos = append(lista_partidos, votos_blancos)
+	for s1.Scan() {
+		campos := strings.Split(s1.Text(), ",")
+		var lista_candidatos [3]string
+		for i := 0; i < CANTIDAD_CARGOS; i++ {
+			lista_candidatos[i] = campos[i+1]
+		}
+		partido := votos.CrearPartido(campos[0], lista_candidatos)
+		lista_partidos = append(lista_partidos, partido)
+	}
+	return lista_partidos
+}
+
+func Crear_Padron(scanner bufio.Scanner) []int {
+	padron := make([]int, 0, 10)
+	for scanner.Scan() {
+		elemento, _ := strconv.Atoi(scanner.Text())
+		insertar_elemento(&padron, elemento)
+	}
+	return padron
+}
+
 func ingresar(dni int, fila *votos.Fila) {
 	votante := votos.CrearVotante(dni)
 	(*fila).Ingresar(votante)
-	fmt.Println(VALIDACION)
+	fmt.Fprintf(os.Stdout, "%s\n", VALIDACION)
 }
 
 func votar(tipo_voto votos.TipoVoto, alternativa int, fila *votos.Fila) {
@@ -125,38 +134,57 @@ func finalizar_voto(fila votos.Fila, lista_partidos []votos.Partido) {
 	fmt.Println(VALIDACION)
 }
 
-func imprimir_resultados(lista_partidos []votos.Partido) {
-	fmt.Fprintf(os.Stdout, "%s:\n", PRESIDENTE_STR)
-	for i := 0; i < len(lista_partidos); i++ {
-		fmt.Fprintf(os.Stdout, "%s", lista_partidos[i].ObtenerResultado(0))
+func imprimir_resultados(lista_partidos []votos.Partido, fila votos.Fila) {
+	if fila.HayVotantes() {
+		ErrorVotoIncompleto := new(errores.ErrorCiudadanosSinVotar)
+		fmt.Fprintf(os.Stdout, "%s\n", ErrorVotoIncompleto.Error())
 	}
+	lista_cargos := [3]string{PRESIDENTE_STR, GOBERNADOR_STR, INTENDENTE_STR}
+	for j := 0; j < CANTIDAD_CARGOS; j++ {
+		fmt.Fprintf(os.Stdout, "%s:\n", lista_cargos[j])
+		for i := 0; i < len(lista_partidos); i++ {
+			if i == 0 {
+				fmt.Fprintf(os.Stdout, "%s : %s\n", lista_partidos[i].Nombre(), lista_partidos[i].ObtenerResultado(votos.TipoVoto(i)))
+				continue
+			}
+			fmt.Fprintf(os.Stdout, "%s - %s : %s\n", lista_partidos[i].Nombre(), lista_partidos[i].Candidato(j), lista_partidos[i].ObtenerResultado(votos.TipoVoto(j)))
+		}
+	}
+	fmt.Fprintf(os.Stdout, "\nVotos Impugnados: %d votos", 2) // cambiar luego el 2 por votos impugnados
 }
 
-func pedir_input(fila *votos.Fila, lista_partidos []votos.Partido, padron *[]int) {
-	inputReader := bufio.NewReader(os.Stdin) // El usuario ingresa el comando
+func pedir_input(fila *votos.Fila, lista_partidos []votos.Partido) []string {
+	inputReader := bufio.NewReader(os.Stdin)
 	input, error := inputReader.ReadString('\n')
 	if error == nil {
-		palabras := strings.Split(input, " ")
-		leer_input(palabras, fila, lista_partidos, padron)
+		return strings.Split(input, " ")
 	}
 	if error == io.EOF {
-		imprimir_resultados(lista_partidos)
+		imprimir_resultados(lista_partidos, *fila)
 	}
+	return nil
 }
 
-func atrapar_errores_dni(dni int, fila *votos.Fila, padron *[]int) bool {
+func atrapar_errores_dni(dni int, fila *votos.Fila, padron *[]int) error {
 	if dni <= 0 {
-		ErrorDNI := new(errores.DNIError)
-		fmt.Fprintf(os.Stdout, "%s\n", ErrorDNI.Error())
-		return true
+		return &errores.DNIError{}
 	}
-	if (*fila).BuscarDNI(dni, *padron) == false {
-		ErrorPadron := new(errores.DNIFueraPadron)
-		fmt.Fprintf(os.Stdout, "%s\n", ErrorPadron.Error())
-		fmt.Fprintf(os.Stdout, "%d\n", dni)
-		return true
+	if !(*fila).BuscarDNI(dni, *padron) {
+		return &errores.DNIFueraPadron{}
 	}
-	return false
+	return nil
+}
+
+func atrapar_errores_finalizar(fila votos.Fila) error {
+	if !fila.HayVotantes() {
+		return &errores.FilaVacia{}
+	}
+	dni := (*fila.VerActual()).LeerDNI()
+	if fila.ValidarDNI(dni) {
+		return &errores.ErrorVotanteFraudulento{Dni: dni}
+	}
+	return nil
+
 }
 
 func atrapar_errores_votar(alternativa int, lista_partidos []votos.Partido, dni int, fila votos.Fila, comando string) (votos.TipoVoto, error) {
@@ -164,7 +192,10 @@ func atrapar_errores_votar(alternativa int, lista_partidos []votos.Partido, dni 
 		return votos.TipoVoto(0), &errores.ErrorAlternativaInvalida{}
 	}
 	if fila.ValidarDNI(dni) {
-		return votos.TipoVoto(0), &errores.ErrorVotanteFraudulento{dni}
+		return votos.TipoVoto(0), &errores.ErrorVotanteFraudulento{Dni: dni}
+	}
+	if !fila.HayVotantes() {
+		return votos.TipoVoto(0), &errores.FilaVacia{}
 	}
 	tipo_voto, error := mappear_tipos_voto(comando)
 	return tipo_voto, error
@@ -181,32 +212,25 @@ func mappear_tipos_voto(cargo string) (votos.TipoVoto, error) {
 	return votos.TipoVoto(m[cargo]), nil
 }
 
-func leer_input(
-	input []string,
-	fila *votos.Fila,
-	lista_partidos []votos.Partido,
-	padron *[]int) {
-
+func leer_input(input []string, fila *votos.Fila, lista_partidos []votos.Partido, padron *[]int) {
 	comando := strings.Trim(input[0], "\n")
 	switch comando {
 
 	case INGRESAR:
-		if len(input) != 2 {
+		if len(input) < 2 {
 			return
 		}
 		dni_string := strings.Trim(input[1], "\n")
 		dni, _ := strconv.Atoi(dni_string)
-		if !atrapar_errores_dni(dni, fila, padron) {
-			ingresar(dni, fila)
-		}
-
-	case VOTAR:
-		if len(input) != 3 {
+		error := atrapar_errores_dni(dni, fila, padron)
+		if error != nil {
+			fmt.Fprintf(os.Stdout, "%s\n", error.Error())
 			return
 		}
-		if !(*fila).HayVotantes() {
-			ErrorFila := new(errores.FilaVacia)
-			fmt.Fprintf(os.Stdout, "%s\n", ErrorFila.Error())
+		ingresar(dni, fila)
+
+	case VOTAR:
+		if len(input) < 3 {
 			return
 		}
 		alternativa_string := strings.Trim(input[2], "\n")
@@ -219,11 +243,6 @@ func leer_input(
 		votar(tipo_voto, alternativa, fila)
 
 	case DESHACER:
-		if !(*fila).HayVotantes() {
-			ErrorFila := new(errores.FilaVacia)
-			fmt.Fprintf(os.Stdout, "%s\n", ErrorFila.Error())
-			return
-		}
 		votante := (*fila).VerActual()
 		error := (*votante).Deshacer()
 		if error != nil {
@@ -238,22 +257,29 @@ func leer_input(
 		fmt.Println(VALIDACION)
 
 	case FIN_VOTO:
-		if !(*fila).HayVotantes() {
-			ErrorFila := new(errores.FilaVacia)
-			fmt.Fprintf(os.Stdout, "%s\n", ErrorFila.Error())
+		error := atrapar_errores_finalizar(*fila)
+		if error != nil {
+			fmt.Fprintf(os.Stdout, "%s\n", error.Error())
 			return
 		}
 		finalizar_voto(*fila, lista_partidos)
 	}
 }
 
-func abrirArchivo(ruta string) *bufio.Scanner {
-	// Devuelve un archivo abierto.
-
-	archivo, err := os.Open(ruta)
-	if err != nil {
-		errorLeerArchivo := new(errores.ErrorLeerArchivo)
-		fmt.Fprintf(os.Stderr, "%s", errorLeerArchivo.Error())
+func validar_archivos() ([]bufio.Scanner, error) {
+	var lista_scanners []bufio.Scanner
+	args := os.Args
+	if len(args) < 3 {
+		return nil, &errores.ErrorParametros{}
 	}
-	return bufio.NewScanner(archivo)
+	archivos := args[1:]
+	for i := 0; i < len(archivos); i++ {
+		archivo, error := os.Open(archivos[i])
+		scanner := bufio.NewScanner(archivo)
+		if error != nil {
+			return nil, &errores.ErrorLeerArchivo{}
+		}
+		lista_scanners = append(lista_scanners, *scanner)
+	}
+	return lista_scanners, nil
 }
