@@ -39,6 +39,9 @@ func main() {
 }
 
 func validar_archivos() ([]bufio.Scanner, error) {
+
+	// Devuelve una lista de archivos que pueden leerse, si alguno no pudo abrir devuelve un error
+
 	var lista_scanners []bufio.Scanner
 	args := os.Args
 	if len(args) < 3 {
@@ -57,6 +60,10 @@ func validar_archivos() ([]bufio.Scanner, error) {
 }
 
 func Crear_lista_partidos(s1 bufio.Scanner) []votos.Partido {
+
+	// Pre : archivo partidos.csv
+	// Post: Crea una lista de elementos type Partido
+
 	var lista_partidos []votos.Partido
 	votos_blancos := votos.CrearVotosEnBlanco()
 	lista_partidos = append(lista_partidos, votos_blancos)
@@ -73,6 +80,10 @@ func Crear_lista_partidos(s1 bufio.Scanner) []votos.Partido {
 }
 
 func Crear_Padron(scanner bufio.Scanner) []int {
+
+	// Pre:  archivo padron_txt
+	// Post: Crea una lista de elementos type Padron
+
 	padron := make([]int, 0, 10)
 	for scanner.Scan() {
 		elemento, _ := strconv.Atoi(scanner.Text())
@@ -82,6 +93,10 @@ func Crear_Padron(scanner bufio.Scanner) []int {
 }
 
 func insertar_elemento(lista *[]int, elemento int) {
+
+	// Inserta un padron en una lista de padrones de forma ordenada
+	// utilizando el algoritmo de inserción.
+
 	if len(*lista) == 0 {
 		*lista = append(*lista, elemento)
 		return
@@ -128,10 +143,15 @@ func imprimir_resultados(lista_partidos []votos.Partido, fila votos.Fila) {
 		fmt.Fprintf(os.Stdout, "%s:\n", lista_cargos[j])
 		for i := 0; i < len(lista_partidos); i++ {
 			if i == 0 {
-				fmt.Fprintf(os.Stdout, "%s : %s\n", lista_partidos[i].Nombre(), lista_partidos[i].ObtenerResultado(votos.TipoVoto(i)))
+				fmt.Fprintf(os.Stdout, "%s : %s\n",
+					lista_partidos[i].Nombre(),                            // %s
+					lista_partidos[i].ObtenerResultado(votos.TipoVoto(i))) // %s
 				continue
 			}
-			fmt.Fprintf(os.Stdout, "%s - %s : %s\n", lista_partidos[i].Nombre(), lista_partidos[i].Candidato(j), lista_partidos[i].ObtenerResultado(votos.TipoVoto(j)))
+			fmt.Fprintf(os.Stdout, "%s - %s : %s\n",
+				lista_partidos[i].Nombre(),                            // %s
+				lista_partidos[i].Candidato(j),                        // %s
+				lista_partidos[i].ObtenerResultado(votos.TipoVoto(j))) // %s
 		}
 	}
 	fmt.Fprintf(os.Stdout, "\nVotos Impugnados: %d votos", 2) // cambiar luego el 2 por votos impugnados
